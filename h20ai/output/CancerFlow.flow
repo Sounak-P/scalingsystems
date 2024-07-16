@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "cells": [
+    {
+      "type": "cs",
+      "input": "assist"
+    },
+    {
+      "type": "cs",
+      "input": "importFiles"
+    },
+    {
+      "type": "cs",
+      "input": "importFiles [ \"/home/sounak/code/scalingsystems/h20ai/cancer/Cancergeometry.csv\" ]"
+    },
+    {
+      "type": "cs",
+      "input": "setupParse source_frames: [ \"nfs://home/sounak/code/scalingsystems/h20ai/cancer/Cancergeometry.csv\" ]"
+    },
+    {
+      "type": "cs",
+      "input": "parseFiles\n  source_frames: [\"nfs://home/sounak/code/scalingsystems/h20ai/cancer/Cancergeometry.csv\"]\n  destination_frame: \"Cancergeometry.hex\"\n  parse_type: \"CSV\"\n  separator: 44\n  number_columns: 32\n  single_quotes: false\n  column_names: [\"id\",\"diagnosis\",\"radius_mean\",\"texture_mean\",\"perimeter_mean\",\"area_mean\",\"smoothness_mean\",\"compactness_mean\",\"concavity_mean\",\"concave points_mean\",\"symmetry_mean\",\"fractal_dimension_mean\",\"radius_se\",\"texture_se\",\"perimeter_se\",\"area_se\",\"smoothness_se\",\"compactness_se\",\"concavity_se\",\"concave points_se\",\"symmetry_se\",\"fractal_dimension_se\",\"radius_worst\",\"texture_worst\",\"perimeter_worst\",\"area_worst\",\"smoothness_worst\",\"compactness_worst\",\"concavity_worst\",\"concave points_worst\",\"symmetry_worst\",\"fractal_dimension_worst\"]\n  column_types: [\"Numeric\",\"Enum\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\",\"Numeric\"]\n  delete_on_done: true\n  check_header: 1\n  chunk_size: 7822\n  escapechar: undefined"
+    },
+    {
+      "type": "cs",
+      "input": "getFrameSummary \"Cancergeometry.hex\""
+    },
+    {
+      "type": "cs",
+      "input": "assist splitFrame, \"Cancergeometry.hex\""
+    },
+    {
+      "type": "cs",
+      "input": "splitFrame \"Cancergeometry.hex\", [0.7,0.1], [\"Cancergeometry.hex_0.70_train\",\"Cancergeometry.hex_0.10_validation\",\"Cancergeometry.hex_0.20_test\"], 895493"
+    },
+    {
+      "type": "cs",
+      "input": "runAutoML"
+    },
+    {
+      "type": "cs",
+      "input": "runAutoML {\"build_control\":{\"project_name\":\"cancer_model\",\"distribution\":\"AUTO\",\"nfolds\":-1,\"balance_classes\":true,\"stopping_criteria\":{\"seed\":-1,\"max_models\":0,\"max_runtime_secs\":600,\"max_runtime_secs_per_model\":0,\"stopping_rounds\":3,\"stopping_metric\":\"AUTO\",\"stopping_tolerance\":-1},\"class_sampling_factors\":[],\"max_after_balance_size\":5,\"keep_cross_validation_predictions\":true,\"keep_cross_validation_models\":true,\"keep_cross_validation_fold_assignment\":false},\"input_spec\":{\"training_frame\":\"Cancergeometry.hex_0.70_train\",\"response_column\":\"diagnosis\",\"validation_frame\":\"Cancergeometry.hex_0.10_validation\",\"leaderboard_frame\":\"Cancergeometry.hex_0.20_test\",\"ignored_columns\":[\"id\"],\"sort_metric\":\"AUTO\"},\"build_models\":{\"exclude_algos\":[],\"exploitation_ratio\":-1,\"monotone_constraints\":[]}}, 'exec'"
+    },
+    {
+      "type": "cs",
+      "input": "getLeaderboard \"cancer_model@@diagnosis\""
+    },
+    {
+      "type": "cs",
+      "input": "getModel \"XGBoost_grid_1_AutoML_2_20240714_192021_model_1\""
+    },
+    {
+      "type": "cs",
+      "input": "exportModel \"XGBoost_grid_1_AutoML_2_20240714_192021_model_1\""
+    },
+    {
+      "type": "cs",
+      "input": "exportModel \"XGBoost_grid_1_AutoML_2_20240714_192021_model_1\", \"/home/sounak/h2oflows/notebook/Cancer_best_model\", overwrite: false, format: \"bin\""
+    }
+  ]
+}
