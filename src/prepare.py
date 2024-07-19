@@ -2,77 +2,78 @@ import os
 import random
 import re
 import sys
-import xml.etree.ElementTree
-
+import pandas as pd
 import yaml
 
-
-def process_posts(input_lines, fd_out_train, fd_out_test, target_tag, split):
+def process_posts(input_df, output_train_path, output_test_path, target_tag, split):
     """
-    Process the input lines and write the output to the output files.
+    Process the input dataframe and write the output to the output files.
 
     Args:
-        input_lines (list): List of input lines.
-        fd_out_train (file): Output file for the training data set.
-        fd_out_test (file): Output file for the test data set.
+        input_df (DataFrame): Input dataframe.
+        output_train_path (str): Path to the training data set file.
+        output_test_path (str): Path to the test data set file.
         target_tag (str): Target tag.
         split (float): Test data set split ratio.
     """
-    num = 1
-    for line in input_lines:
-        try:
-            fd_out = fd_out_train if random.random() > split else fd_out_test
-            attr = xml.etree.ElementTree.fromstring(line).attrib
+    train_data = []
+    test_data = []
 
-            pid = attr.get("Id", "")
-            label = 1 if target_tag in attr.get("Tags", "") else 0
-            title = re.sub(r"\s+", " ", attr.get("Title", "")).strip()
-            body = re.sub(r"\s+", " ", attr.get("Body", "")).strip()
+    for _, row in input_df.iterrows():
+        try:
+            if random.random() > split:
+                target_list = train_data
+            else:
+                target_list = test_data
+
+            pid = row.get("Id", "")
+            label = 1 if target_tag in row.get("Tags", "") else 0
+            title = re.sub(r"\s+", " ", row.get("Title", "")).strip()
+            body = re.sub(r"\s+", " ", row.get("Body", "")).strip()
             text = title + " " + body
 
-            fd_out.write("{}\t{}\t{}\n".format(pid, label, text))
+            target_list.append([pid, label, text])
 
-            num += 1
         except Exception as ex:
-            sys.stderr.write(f"Skipping the broken line {num}: {ex}\n")
+            sys.stderr.write(f"Skipping the broken line: {ex}\n")
 
+    # Convert lists to DataFrames
+    train_df = pd.DataFrame(train_data, columns=["Id", "Label", "Text"])
+    test_df = pd.DataFrame(test_data, columns=["Id", "Label", "Text"])
+
+    # Save DataFrames to TSV
+    train_df.to_csv(output_train_path, sep='\t', index=False)
+    test_df.to_csv(output_test_path, sep='\t', index=False)
 
 def main():
     params = yaml.safe_load(open("params.yaml"))["prepare"]
 
     if len(sys.argv) != 2:
         sys.stderr.write("Arguments error. Usage:\n")
-        sys.stderr.write("\tpython prepare.py data-file\n")
+        sys.stderr.write("\tpython prepare.py data-file.csv\n")
         sys.exit(1)
 
     # Test data set split ratio
     split = params["split"]
     random.seed(params["seed"])
 
-    input = sys.argv[1]
+    input_csv = sys.argv[1]
     output_train = os.path.join("data", "prepared", "train.tsv")
     output_test = os.path.join("data", "prepared", "test.tsv")
 
     os.makedirs(os.path.join("data", "prepared"), exist_ok=True)
 
-    input_lines = []
-    with open(input) as fd_in:
-        input_lines = fd_in.readlines()
-
-    fd_out_train = open(output_train, "w", encoding="utf-8")
-    fd_out_test = open(output_test, "w", encoding="utf-8")
+    input_df = pd.read_csv(input_csv)
 
     process_posts(
-        input_lines=input_lines,
-        fd_out_train=fd_out_train,
-        fd_out_test=fd_out_test,
-        target_tag="<r>",
+        input_df=input_df,
+        output_train_path=output_train,
+        output_test_path=output_test,
+        target_tag=params["target_tag"],
         split=split,
     )
 
-    fd_out_train.close()
-    fd_out_test.close()
-
+    print("Data preparation completed.")
 
 if __name__ == "__main__":
     main()
