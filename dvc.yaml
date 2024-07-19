@@ -1,0 +1,23 @@
+stages:
+  prepare:
+    cmd: python src/prepare.py data/data.csv
+    deps:
+    - data/data.csv
+    - src/prepare.py
+    params:
+    - prepare.seed
+    - prepare.split
+    outs:
+    - data/prepared
+  featurize:
+    cmd: python src/featurization.py data/prepared/train.csv data/prepared/test.csv
+      data/features/train.pkl data/features/test.pkl
+    deps:
+    - data/prepared/test.csv
+    - data/prepared/train.csv
+    - src/featurization.py
+    params:
+    - featurize.n_components
+    outs:
+    - data/features/test.pkl
+    - data/features/train.pkl
