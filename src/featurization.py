@@ -1,136 +1,83 @@
 import os
-import pickle
-import sys
-
-import numpy as np
 import pandas as pd
-import scipy.sparse as sparse
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.impute import SimpleImputer
 import yaml
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+import sys
+import pickle
 
-
-def get_df(data):
-    """Read the input data file and return a data frame."""
-    df = pd.read_csv(
-        data,
-        encoding="utf-8",
-        header=None,
-        delimiter="\t",
-        names=["id", "label", "text"],
-    )
-    sys.stderr.write(f"The input data frame {data} size is {df.shape}\n")
-    return df
-
-
-def save_matrix(df, matrix, names, output):
+def featurize_data(input_train_path, input_test_path, output_train_path, output_test_path, n_components):
     """
-    Save the matrix to a pickle file.
+    Featurize the data by encoding the target variable, imputing missing values, scaling the features, applying PCA, and saving the results.
 
     Args:
-        df (pandas.DataFrame): Input data frame.
-        matrix (scipy.sparse.csr_matrix): Input matrix.
-        names (list): List of feature names.
-        output (str): Output file name.
+        input_train_path (str): Path to the input training data file.
+        input_test_path (str): Path to the input test data file.
+        output_train_path (str): Path to the output training data file.
+        output_test_path (str): Path to the output test data file.
+        n_components (int): Number of principal components for PCA.
     """
-    id_matrix = sparse.csr_matrix(df.id.astype(np.int64)).T
-    label_matrix = sparse.csr_matrix(df.label.astype(np.int64)).T
+    # Load the training and test datasets
+    train_df = pd.read_csv(input_train_path)
+    test_df = pd.read_csv(input_test_path)
 
-    result = sparse.hstack([id_matrix, label_matrix, matrix], format="csr")
+    # Encode the 'diagnosis' variable
+    train_df['diagnosis'] = train_df['diagnosis'].map({'B': 0, 'M': 1})
+    test_df['diagnosis'] = test_df['diagnosis'].map({'B': 0, 'M': 1})
 
-    msg = "The output matrix {} size is {} and data type is {}\n"
-    sys.stderr.write(msg.format(output, result.shape, result.dtype))
+    # Separate features and target variable
+    X_train = train_df.drop(columns=['diagnosis','Unnamed: 32'])
+    y_train = train_df['diagnosis']
+    X_test = test_df.drop(columns=['diagnosis','Unnamed: 32'])
+    y_test = test_df['diagnosis']
 
-    with open(output, "wb") as fd:
-        pickle.dump((result, names), fd)
-    pass
+    # Impute missing values
+    imputer = SimpleImputer(strategy='mean')
+    X_train_imputed = imputer.fit_transform(X_train)
+    X_test_imputed = imputer.transform(X_test)
 
+    # Scale the features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_imputed)
+    X_test_scaled = scaler.transform(X_test_imputed)
 
-def generate_and_save_train_features(train_input, train_output, bag_of_words, tfidf):
-    """
-    Generate train feature matrix.
+    # Apply PCA
+    pca = PCA(n_components=n_components)
+    X_train_pca = pca.fit_transform(X_train_scaled)
+    X_test_pca = pca.transform(X_test_scaled)
 
-    Args:
-        train_input (str): Train input file name.
-        train_output (str): Train output file name.
-        bag_of_words (sklearn.feature_extraction.text.CountVectorizer): Bag of words.
-        tfidf (sklearn.feature_extraction.text.TfidfTransformer): TF-IDF transformer.
-    """
-    df_train = get_df(train_input)
-    train_words = np.array(df_train.text.str.lower().values)
+    # Save the processed features and target variable to pickle files
+    with open(output_train_path, 'wb') as f:
+        pickle.dump((X_train_pca, y_train), f)
+    with open(output_test_path, 'wb') as f:
+        pickle.dump((X_test_pca, y_test), f)
 
-    bag_of_words.fit(train_words)
-
-    train_words_binary_matrix = bag_of_words.transform(train_words)
-    feature_names = bag_of_words.get_feature_names_out()
-
-    tfidf.fit(train_words_binary_matrix)
-    train_words_tfidf_matrix = tfidf.transform(train_words_binary_matrix)
-
-    save_matrix(df_train, train_words_tfidf_matrix, feature_names, train_output)
-
-
-def generate_and_save_test_features(test_input, test_output, bag_of_words, tfidf):
-    """
-    Generate test feature matrix.
-
-    Args:
-        test_input (str): Test input file name.
-        test_output (str): Test output file name.
-        bag_of_words (sklearn.feature_extraction.text.CountVectorizer): Bag of words.
-        tfidf (sklearn.feature_extraction.text.TfidfTransformer): TF-IDF transformer.
-    """
-    df_test = get_df(test_input)
-    test_words = np.array(df_test.text.str.lower().values)
-
-    test_words_binary_matrix = bag_of_words.transform(test_words)
-    test_words_tfidf_matrix = tfidf.transform(test_words_binary_matrix)
-    feature_names = bag_of_words.get_feature_names_out()
-
-    save_matrix(df_test, test_words_tfidf_matrix, feature_names, test_output)
-
+    print("Featurization completed.")
 
 def main():
     params = yaml.safe_load(open("params.yaml"))["featurize"]
 
-    np.set_printoptions(suppress=True)
-
-    if len(sys.argv) != 3 and len(sys.argv) != 5:
+    if len(sys.argv) != 5:
         sys.stderr.write("Arguments error. Usage:\n")
-        sys.stderr.write("\tpython featurization.py data-dir-path features-dir-path\n")
+        sys.stderr.write("\tpython featurization.py train-file.csv test-file.csv output-train.pkl output-test.pkl\n")
         sys.exit(1)
 
-    in_path = sys.argv[1]
-    out_path = sys.argv[2]
+    input_train_csv = sys.argv[1]
+    input_test_csv = sys.argv[2]
+    output_train_path = sys.argv[3]
+    output_test_path = sys.argv[4]
 
-    train_input = os.path.join(in_path, "train.tsv")
-    test_input = os.path.join(in_path, "test.tsv")
-    train_output = os.path.join(out_path, "train.pkl")
-    test_output = os.path.join(out_path, "test.pkl")
+    os.makedirs(os.path.dirname(output_train_path), exist_ok=True)
+    os.makedirs(os.path.dirname(output_test_path), exist_ok=True)
 
-    max_features = params["max_features"]
-    ngrams = params["ngrams"]
-
-    os.makedirs(out_path, exist_ok=True)
-
-    bag_of_words = CountVectorizer(
-        stop_words="english", max_features=max_features, ngram_range=(1, ngrams)
+    featurize_data(
+        input_train_path=input_train_csv,
+        input_test_path=input_test_csv,
+        output_train_path=output_train_path,
+        output_test_path=output_test_path,
+        n_components=params["n_components"]
     )
-    tfidf = TfidfTransformer(smooth_idf=False)
-
-    generate_and_save_train_features(
-        train_input=train_input,
-        train_output=train_output,
-        bag_of_words=bag_of_words,
-        tfidf=tfidf,
-    )
-
-    generate_and_save_test_features(
-        test_input=test_input,
-        test_output=test_output,
-        bag_of_words=bag_of_words,
-        tfidf=tfidf,
-    )
-
 
 if __name__ == "__main__":
     main()

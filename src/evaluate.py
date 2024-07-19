@@ -1,36 +1,32 @@
 import json
-import math
 import os
 import pickle
 import sys
 
 import pandas as pd
 from sklearn import metrics
-from sklearn import tree
 from dvclive import Live
 from matplotlib import pyplot as plt
 
 
-def evaluate(model, matrix, split, live, save_path):
+def evaluate(model, X, y, split, live, save_path):
     """
     Dump all evaluation metrics and plots for given datasets.
 
     Args:
         model (sklearn.ensemble.RandomForestClassifier): Trained classifier.
-        matrix (scipy.sparse.csr_matrix): Input matrix.
+        X (numpy.ndarray): Feature matrix.
+        y (numpy.ndarray): Labels.
         split (str): Dataset name.
         live (dvclive.Live): Dvclive instance.
         save_path (str): Path to save the metrics.
     """
-    labels = matrix[:, 1].toarray().astype(int)
-    x = matrix[:, 2:]
-
-    predictions_by_class = model.predict_proba(x)
+    predictions_by_class = model.predict_proba(X)
     predictions = predictions_by_class[:, 1]
 
     # Use dvclive to log a few simple metrics...
-    avg_prec = metrics.average_precision_score(labels, predictions)
-    roc_auc = metrics.roc_auc_score(labels, predictions)
+    avg_prec = metrics.average_precision_score(y, predictions)
+    roc_auc = metrics.roc_auc_score(y, predictions)
     if not live.summary:
         live.summary = {"avg_prec": {}, "roc_auc": {}}
     live.summary["avg_prec"][split] = avg_prec
@@ -38,12 +34,12 @@ def evaluate(model, matrix, split, live, save_path):
 
     # ... and plots...
     # ... like an roc plot...
-    live.log_sklearn_plot("roc", labels, predictions, name=f"roc/{split}")
+    live.log_sklearn_plot("roc", y, predictions, name=f"roc/{split}")
     # ... and precision recall plot...
     # ... which passes `drop_intermediate=True` to the sklearn method...
     live.log_sklearn_plot(
         "precision_recall",
-        labels,
+        y,
         predictions,
         name=f"prc/{split}",
         drop_intermediate=True,
@@ -51,7 +47,7 @@ def evaluate(model, matrix, split, live, save_path):
     # ... and confusion matrix plot
     live.log_sklearn_plot(
         "confusion_matrix",
-        labels.squeeze(),
+        y,
         predictions_by_class.argmax(-1),
         name=f"cm/{split}",
     )
@@ -94,18 +90,18 @@ def main():
         model = pickle.load(fd)
 
     with open(train_file, "rb") as fd:
-        train, feature_names = pickle.load(fd)
+        X_train, y_train = pickle.load(fd)
 
     with open(test_file, "rb") as fd:
-        test, _ = pickle.load(fd)
+        X_test, y_test = pickle.load(fd)
 
     # Evaluate train and test datasets.
     with Live(EVAL_PATH) as live:
-        evaluate(model, train, "train", live, save_path=EVAL_PATH)
-        evaluate(model, test, "test", live, save_path=EVAL_PATH)
+        evaluate(model, X_train, y_train, "train", live, save_path=EVAL_PATH)
+        evaluate(model, X_test, y_test, "test", live, save_path=EVAL_PATH)
 
         # Dump feature importance plot.
-        save_importance_plot(live, model, feature_names)
+        save_importance_plot(live, model, [f"PC{i}" for i in range(X_train.shape[1])])
 
 
 if __name__ == "__main__":
