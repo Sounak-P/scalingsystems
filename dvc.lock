@@ -49,3 +49,25 @@ stages:
       hash: md5
       md5: acc4379c311b476b6f34bc93703a6ae8
       size: 41353
+  train:
+    cmd: python src/train.py data/features model.pkl
+    deps:
+    - path: data/features
+      hash: md5
+      md5: 1eb2095d56fab415049dc7faa0790e7f.dir
+      size: 51461
+      nfiles: 2
+    - path: src/train.py
+      hash: md5
+      md5: acfb565c477f64084eced09b284b0261
+      size: 1521
+    params:
+      params.yaml:
+        train.min_split: 0.01
+        train.n_est: 50
+        train.seed: 20170428
+    outs:
+    - path: model.pkl
+      hash: md5
+      md5: ad297c7fcdba2bfea2847c83ff557d95
+      size: 207847

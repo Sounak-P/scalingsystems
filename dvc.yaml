@@ -21,3 +21,14 @@ stages:
     outs:
     - data/features/test.pkl
     - data/features/train.pkl
+  train:
+    cmd: python src/train.py data/features model.pkl
+    deps:
+    - data/features
+    - src/train.py
+    params:
+    - train.min_split
+    - train.n_est
+    - train.seed
+    outs:
+    - model.pkl
