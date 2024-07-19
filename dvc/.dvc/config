@@ -1,0 +1,4 @@
+[core]
+    remote = tutremote
+['remote "tutremote"']
+    url = /home/sounak/code/scalingsystems/dvc/dvc-storage
